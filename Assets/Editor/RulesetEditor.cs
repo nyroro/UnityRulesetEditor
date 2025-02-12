@@ -11,15 +11,16 @@ using Microsoft.CodeAnalysis;
 public class RulesetEditor : EditorWindow
 {
     private Vector2 scrollPosition;
-    private Dictionary<string, bool> namespaceFoldouts = new Dictionary<string, bool>();
+    private Dictionary<string, bool> categoryFoldouts = new Dictionary<string, bool>();
     private List<Category> categories = new List<Category>();
 
     // 定义数据结构
     [System.Serializable]
     public class RuleEntry
     {
+        public bool enabled;
         public string id;
-        public string rule;
+        public string title;
         public DiagnosticSeverity severity;
     }
 
@@ -102,8 +103,9 @@ public class RulesetEditor : EditorWindow
                     var category = categoryTable[diagnostic.Category];
                     category.entries.Add(new RuleEntry
                     {
+                        enabled = diagnostic.IsEnabledByDefault,
                         id = diagnostic.Id,
-                        rule = diagnostic.Title.ToString(),
+                        title = diagnostic.Title.ToString(),
                         severity = diagnostic.DefaultSeverity,
                     });
                 }
@@ -131,46 +133,50 @@ public class RulesetEditor : EditorWindow
     {
         scrollPosition = GUILayout.BeginScrollView(scrollPosition);
 
-        foreach (var ns in categories)
+        foreach (var category in categories)
         {
-            if (!namespaceFoldouts.ContainsKey(ns.name))
+            if (!categoryFoldouts.ContainsKey(category.name))
             {
-                namespaceFoldouts[ns.name] = false;
+                categoryFoldouts[category.name] = false;
             }
 
             // 绘制命名空间折叠头
-            namespaceFoldouts[ns.name] = EditorGUILayout.Foldout(
-                namespaceFoldouts[ns.name], 
-                ns.name, 
+            categoryFoldouts[category.name] = EditorGUILayout.Foldout(
+                categoryFoldouts[category.name], 
+                category.name, 
                 true, 
                 EditorStyles.foldoutHeader
             );
 
-            if (namespaceFoldouts[ns.name])
+            if (categoryFoldouts[category.name])
             {
                 EditorGUI.indentLevel++;
-                foreach (var entry in ns.entries)
+                foreach (var entry in category.entries)
                 {
                     GUILayout.BeginHorizontal();
+                    // Enabled 列
+                    entry.enabled = EditorGUILayout.Toggle(entry.enabled, GUILayout.Width(20));
+                    
+                    // 空白间隔
+                    GUILayout.Space(10);
                     
                     // ID列
-                    GUILayout.Label(entry.id, GUILayout.Width(60));
+                    GUILayout.Label(entry.id, GUILayout.Width(60), GUILayout.ExpandWidth(false));
                     
-                    // Rule列
-                    GUILayout.Label(entry.rule, GUILayout.Width(120));
+                    // Title列
+                    GUILayout.Label(entry.title, GUILayout.ExpandWidth(true));
                     
                     // Status列（带下拉框）
                     entry.severity = (DiagnosticSeverity)EditorGUILayout.EnumPopup(
                         entry.severity, 
-                        GUILayout.Width(80)
+                        GUILayout.Width(80), 
+                        GUILayout.ExpandWidth(false)
                     );
-                    
                     GUILayout.EndHorizontal();
                 }
                 EditorGUI.indentLevel--;
             }
         }
-
         GUILayout.EndScrollView();
     }
 }
