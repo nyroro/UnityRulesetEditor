@@ -5,14 +5,47 @@ using System.Reflection;
 using System.Linq;
 using System.Collections.Generic;
 using Microsoft.CodeAnalysis.Diagnostics;
+using System.Data;
+using Microsoft.CodeAnalysis;
 
 public class RulesetEditor : EditorWindow
 {
-    [MenuItem( itemName: "Tools/Rulesets" )]
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    static void Rulesets()
+    private Vector2 scrollPosition;
+    private Dictionary<string, bool> namespaceFoldouts = new Dictionary<string, bool>();
+    private List<Category> categories = new List<Category>();
+
+    // 定义数据结构
+    [System.Serializable]
+    public class RuleEntry
     {
-        Debug.Log("ruleset");
+        public string id;
+        public string rule;
+        public DiagnosticSeverity severity;
+    }
+
+    [System.Serializable]
+    public class Category
+    {
+        public string name;
+        public List<RuleEntry> entries = new List<RuleEntry>();
+    }
+
+    [MenuItem("Window/Rulesets")]
+    public static void ShowWindow()
+    {
+        GetWindow<RulesetEditor>("Rulesets");
+    }
+
+    private void OnEnable()
+    {
+        // 初始化示例数据
+        InitializeSampleData();
+    }
+
+    private void InitializeSampleData()
+    {
+        categories.Clear();
+
         // 设置要查找的标签名称
         string targetLabel = "RoslynAnalyzer"; // 替换为你要查找的标签
 
@@ -32,7 +65,6 @@ public class RulesetEditor : EditorWindow
                 // 3. 如果资源打上了目标标签
                 if (System.Array.Exists(labels, label => label == targetLabel))
                 {
-                    Debug.Log($"找到符合标签的资源: {assetPath}");
                     if (!assetPath.Contains("CodeFixes"))
                     {
                         LoadAnalyzer(assetPath);
@@ -42,7 +74,7 @@ public class RulesetEditor : EditorWindow
         }
     }
 
-    static void LoadAnalyzer(string path)
+    void LoadAnalyzer(string path)
     {
         
         // 加载 Roslynator 的分析器 DLL
@@ -52,12 +84,10 @@ public class RulesetEditor : EditorWindow
         var diagnosticAnalyzerTypes = assembly.GetTypes()
                                               .Where(t => typeof(DiagnosticAnalyzer).IsAssignableFrom(t) && !t.IsAbstract)
                                               .ToList();
-
+        Dictionary<string, Category> categoryTable = new Dictionary<string, Category>();
         // 打印每个规则的名字
         foreach (var type in diagnosticAnalyzerTypes)
         {
-            Debug.Log($"Found rule: {type.FullName}");
-
             // 如果你需要更多的规则信息，可以在这里调用相关方法
             var analyzerInstance = Activator.CreateInstance(type) as DiagnosticAnalyzer;
             if (analyzerInstance != null) 
@@ -65,9 +95,82 @@ public class RulesetEditor : EditorWindow
                 System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor> supportedDiagnostics = analyzerInstance.SupportedDiagnostics;
                 foreach (var diagnostic in supportedDiagnostics)
                 {
-                    Debug.Log($"  - Diagnostic ID: {diagnostic.Id}, Title: {diagnostic.Title}");
+                    if (!categoryTable.ContainsKey(diagnostic.Category))
+                    {
+                        categoryTable.Add(diagnostic.Category, new Category { name = diagnostic.Category });
+                    }
+                    var category = categoryTable[diagnostic.Category];
+                    category.entries.Add(new RuleEntry
+                    {
+                        id = diagnostic.Id,
+                        rule = diagnostic.Title.ToString(),
+                        severity = diagnostic.DefaultSeverity,
+                    });
                 }
             }
         }
+
+        categories.AddRange(categoryTable.Values);
+    }
+
+    private void OnGUI()
+    {
+        DrawToolbar();
+        DrawContent();
+    }
+
+    private void DrawToolbar()
+    {
+        GUILayout.BeginHorizontal(EditorStyles.toolbar);
+        GUILayout.Label("Rulesets", EditorStyles.boldLabel);
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+    }
+
+    private void DrawContent()
+    {
+        scrollPosition = GUILayout.BeginScrollView(scrollPosition);
+
+        foreach (var ns in categories)
+        {
+            if (!namespaceFoldouts.ContainsKey(ns.name))
+            {
+                namespaceFoldouts[ns.name] = false;
+            }
+
+            // 绘制命名空间折叠头
+            namespaceFoldouts[ns.name] = EditorGUILayout.Foldout(
+                namespaceFoldouts[ns.name], 
+                ns.name, 
+                true, 
+                EditorStyles.foldoutHeader
+            );
+
+            if (namespaceFoldouts[ns.name])
+            {
+                EditorGUI.indentLevel++;
+                foreach (var entry in ns.entries)
+                {
+                    GUILayout.BeginHorizontal();
+                    
+                    // ID列
+                    GUILayout.Label(entry.id, GUILayout.Width(60));
+                    
+                    // Rule列
+                    GUILayout.Label(entry.rule, GUILayout.Width(120));
+                    
+                    // Status列（带下拉框）
+                    entry.severity = (DiagnosticSeverity)EditorGUILayout.EnumPopup(
+                        entry.severity, 
+                        GUILayout.Width(80)
+                    );
+                    
+                    GUILayout.EndHorizontal();
+                }
+                EditorGUI.indentLevel--;
+            }
+        }
+
+        GUILayout.EndScrollView();
     }
 }
