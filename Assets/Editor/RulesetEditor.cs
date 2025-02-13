@@ -141,7 +141,7 @@ public class RulesetEditor : EditorWindow
             "Create New Ruleset",
             "",
             "NewRuleset",
-            "cs"
+            "ruleset"
         );
 
         if (!string.IsNullOrEmpty(path))
@@ -150,6 +150,7 @@ public class RulesetEditor : EditorWindow
             // 这里可以添加创建规则集文件的逻辑
             Debug.Log("创建了新的规则集文件：" + path);
         }
+        selectedOption = "a";
     }
 
     private void DrawContent()
