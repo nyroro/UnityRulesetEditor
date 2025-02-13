@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using Microsoft.CodeAnalysis.Diagnostics;
 using System.Data;
 using Microsoft.CodeAnalysis;
+using System.IO;
 public class RulesetEditor : EditorWindow
 {
     private Vector2 scrollPosition;
@@ -40,10 +41,18 @@ public class RulesetEditor : EditorWindow
 
     private void OnEnable()
     {
-        InitializeSampleData();
+        InitializeRulesetFiles();
+        InitializeRulesetData();
     }
 
-    private void InitializeSampleData()
+    private void InitializeRulesetFiles()
+    {
+        options = Directory.GetFiles(Application.dataPath, "*.ruleset", System.IO.SearchOption.AllDirectories);
+        // options = options.Append("Create New Ruleset").ToArray();
+        selectedOption = options[0];
+    }
+
+    private void InitializeRulesetData()
     {
         categories.Clear();
 
@@ -115,7 +124,7 @@ public class RulesetEditor : EditorWindow
 
         var index = Array.IndexOf(options, selectedOption);
 
-        index = EditorGUILayout.Popup(index, options, GUILayout.Width(150));
+        index = EditorGUILayout.Popup(index, options.Select(option => Path.GetFileNameWithoutExtension(option)).ToArray(), GUILayout.Width(150));
         selectedOption = options[index];
 
         if (selectedOption == "Create New Ruleset")
@@ -150,7 +159,7 @@ public class RulesetEditor : EditorWindow
             // 这里可以添加创建规则集文件的逻辑
             Debug.Log("创建了新的规则集文件：" + path);
         }
-        selectedOption = "a";
+        selectedOption = options[0];
     }
 
     private void DrawContent()
