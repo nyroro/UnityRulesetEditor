@@ -129,54 +129,85 @@ public class RulesetEditor : EditorWindow
         GUILayout.EndHorizontal();
     }
 
-    private void DrawContent()
+private void DrawContent()
+{
+    scrollPosition = GUILayout.BeginScrollView(scrollPosition);
+
+    foreach (var category in categories)
     {
-        scrollPosition = GUILayout.BeginScrollView(scrollPosition);
-
-        foreach (var category in categories)
+        if (!categoryFoldouts.ContainsKey(category.name))
         {
-            if (!categoryFoldouts.ContainsKey(category.name))
-            {
-                categoryFoldouts[category.name] = false;
-            }
+            categoryFoldouts[category.name] = false;
+        }
 
-            // 绘制命名空间折叠头
-            categoryFoldouts[category.name] = EditorGUILayout.Foldout(
-                categoryFoldouts[category.name], 
-                category.name, 
-                true, 
-                EditorStyles.foldoutHeader
-            );
+        bool isExpanded = categoryFoldouts[category.name];
+        bool allEnabled = category.entries.Count == 0 ? false : category.entries.All(e => e.enabled);
+        bool someEnabled = !allEnabled && category.entries.Any(e => e.enabled);
 
-            if (categoryFoldouts[category.name])
+        // 开始绘制自定义折叠头
+        EditorGUILayout.BeginHorizontal(EditorStyles.foldoutHeader);
+
+        // 绘制Toggle控件
+        EditorGUI.BeginChangeCheck();
+        EditorGUI.showMixedValue = someEnabled;
+        Rect toggleRect = EditorGUILayout.GetControlRect(GUILayout.Width(20));
+        bool newToggle = EditorGUI.Toggle(toggleRect, allEnabled);
+        EditorGUI.showMixedValue = false;
+
+        // 更新所有entry的启用状态
+        if (EditorGUI.EndChangeCheck())
+        {
+            foreach (var entry in category.entries)
             {
-                EditorGUI.indentLevel++;
-                foreach (var entry in category.entries)
-                {
-                    GUILayout.BeginHorizontal();
-                    // Enabled 列
-                    entry.enabled = EditorGUILayout.Toggle(entry.enabled, GUILayout.Width(20));
-                    
-                    // 空白间隔
-                    GUILayout.Space(10);
-                    
-                    // ID列
-                    GUILayout.Label(entry.id, GUILayout.Width(60), GUILayout.ExpandWidth(false));
-                    
-                    // Title列
-                    GUILayout.Label(entry.title, GUILayout.ExpandWidth(true));
-                    
-                    // Status列（带下拉框）
-                    entry.severity = (DiagnosticSeverity)EditorGUILayout.EnumPopup(
-                        entry.severity, 
-                        GUILayout.Width(80), 
-                        GUILayout.ExpandWidth(false)
-                    );
-                    GUILayout.EndHorizontal();
-                }
-                EditorGUI.indentLevel--;
+                entry.enabled = newToggle;
             }
         }
-        GUILayout.EndScrollView();
+
+        // 绘制分类名称标签
+        GUILayout.Label(category.name, GUILayout.ExpandWidth(true));
+
+        // 绘制折叠箭头图标
+        GUIContent arrowIcon = isExpanded 
+            ? EditorGUIUtility.IconContent("IN foldout on") 
+            : EditorGUIUtility.IconContent("IN foldout");
+        GUILayout.Label(arrowIcon, GUILayout.Width(20));
+
+        EditorGUILayout.EndHorizontal();
+
+        // 处理折叠头的点击事件
+        Rect headerRect = GUILayoutUtility.GetLastRect();
+        if (Event.current.type == EventType.MouseDown && headerRect.Contains(Event.current.mousePosition))
+        {
+            // 排除toggle区域的点击
+            if (!toggleRect.Contains(Event.current.mousePosition))
+            {
+                categoryFoldouts[category.name] = !isExpanded;
+                Event.current.Use();
+            }
+        }
+
+        // 展开时绘制详细规则列表
+        if (categoryFoldouts[category.name])
+        {
+            EditorGUI.indentLevel++;
+            foreach (var entry in category.entries)
+            {
+                GUILayout.BeginHorizontal();
+                entry.enabled = EditorGUILayout.Toggle(entry.enabled, GUILayout.Width(20));
+                GUILayout.Space(10);
+                GUILayout.Label(entry.id, GUILayout.Width(60), GUILayout.ExpandWidth(false));
+                GUILayout.Label(entry.title, GUILayout.ExpandWidth(true));
+                entry.severity = (DiagnosticSeverity)EditorGUILayout.EnumPopup(
+                    entry.severity, 
+                    GUILayout.Width(80), 
+                    GUILayout.ExpandWidth(false)
+                );
+                GUILayout.EndHorizontal();
+            }
+            EditorGUI.indentLevel--;
+        }
     }
+
+    GUILayout.EndScrollView();
+}
 }
