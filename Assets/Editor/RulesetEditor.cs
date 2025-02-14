@@ -291,8 +291,7 @@ public class RulesetEditor : EditorWindow
                             entry.title.Contains(searchString, StringComparison.OrdinalIgnoreCase))
                         {
                             GUILayout.BeginHorizontal();
-                            entry.enabled = EditorGUILayout.Toggle(entry.enabled, GUILayout.Width(20));
-                            GUILayout.Space(10);
+                            entry.enabled = EditorGUILayout.Toggle(entry.enabled, GUILayout.Width(40));
                             GUILayout.Label(entry.id, GUILayout.Width(60), GUILayout.ExpandWidth(false));
                             GUILayout.Label(entry.title, GUILayout.ExpandWidth(true));
                             entry.severity = (DiagnosticSeverity)EditorGUILayout.EnumPopup(
