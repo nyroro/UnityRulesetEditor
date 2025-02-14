@@ -1,21 +1,22 @@
-﻿using UnityEngine;
-using UnityEditor;
-using System;
-using System.Reflection;
-using System.Linq;
+﻿using System;
 using System.Collections.Generic;
-using Microsoft.CodeAnalysis.Diagnostics;
 using System.Data;
-using Microsoft.CodeAnalysis;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Xml;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
+using UnityEditor;
+using UnityEngine;
+
 public class RulesetEditor : EditorWindow
 {
+    private const string CreateNewRulesetOption = "Create New Ruleset";
     private Vector2 scrollPosition;
     private Dictionary<string, bool> namespaceFoldouts = new Dictionary<string, bool>();
     private List<RuleNamespace> ruleNamespaces = new List<RuleNamespace>();
     private string selectedOption;
-    private const string createNewRulesetOption = "Create New Ruleset";
     private string[] options;
     private Dictionary<string, Dictionary<string, RuleAction>> ruleSetRules = new Dictionary<string, Dictionary<string, RuleAction>>();
 
@@ -24,7 +25,6 @@ public class RulesetEditor : EditorWindow
     {
         GetWindow<RulesetEditor>("Rulesets");
     }
-
 
     private void OnEnable()
     {
@@ -39,7 +39,8 @@ public class RulesetEditor : EditorWindow
         {
             options = new string[] { string.Empty };
         }
-        options = options.Append(createNewRulesetOption).ToArray();
+
+        options = options.Append(CreateNewRulesetOption).ToArray();
         selectedOption = options[0];
     }
 
@@ -49,7 +50,7 @@ public class RulesetEditor : EditorWindow
 
         string targetLabel = "RoslynAnalyzer";
 
-        string[] allAssetGUIDs = AssetDatabase.FindAssets("");
+        string[] allAssetGUIDs = AssetDatabase.FindAssets(string.Empty);
 
         // 解析选中的RuleSet文件
         if (!string.IsNullOrEmpty(selectedOption))
@@ -84,7 +85,7 @@ public class RulesetEditor : EditorWindow
         }
     }
 
-    void LoadAnalyzer(string path)
+    private void LoadAnalyzer(string path)
     {
         var assembly = Assembly.LoadFrom(path);
         var assemblyName = assembly.GetName().Name;
@@ -105,6 +106,7 @@ public class RulesetEditor : EditorWindow
                     {
                         namespaceTable.Add(ruleNamespace, new RuleNamespace { name = ruleNamespace, analyzerId = assemblyName });
                     }
+
                     var ruleNamespaceEntry = namespaceTable[ruleNamespace];
                     RuleEntry ruleEntry = new RuleEntry
                     {
@@ -148,7 +150,6 @@ public class RulesetEditor : EditorWindow
         DrawContent();
         DrawBottomButtons(); // 添加底部按钮的绘制
     }
-
 
     private void DrawBottomButtons()
     {
@@ -217,16 +218,15 @@ public class RulesetEditor : EditorWindow
         GUILayout.EndHorizontal();
     }
 
-    private string searchString = "";
+    private string searchString = string.Empty;
 
     private void CreateNewRuleset(string preSelected)
     {
         string path = EditorUtility.SaveFilePanel(
             "Create New Ruleset",
-            "",
+            string.Empty,
             "Default",
-            "ruleset"
-        );
+            "ruleset");
 
         if (!string.IsNullOrEmpty(path))
         {
@@ -264,7 +264,7 @@ public class RulesetEditor : EditorWindow
                     namespaceFoldouts[ruleNamespace.name] = false;
                 }
 
-                if (searchString != "")
+                if (searchString != string.Empty)
                 {
                     namespaceFoldouts[ruleNamespace.name] = true;
                 }
@@ -323,11 +323,11 @@ public class RulesetEditor : EditorWindow
                             entry.severity = (DiagnosticSeverity)EditorGUILayout.EnumPopup(
                                 entry.severity,
                                 GUILayout.Width(80),
-                                GUILayout.ExpandWidth(false)
-                            );
+                                GUILayout.ExpandWidth(false));
                             GUILayout.EndHorizontal();
                         }
                     }
+
                     EditorGUI.indentLevel--;
                 }
             }
@@ -336,7 +336,6 @@ public class RulesetEditor : EditorWindow
         GUILayout.EndScrollView();
     }
 }
-
 
 public class RuleSetParser
 {
@@ -362,6 +361,7 @@ public class RuleSetParser
                 {
                     ruleSetRules[ruleNamespace] = new Dictionary<string, RuleAction>();
                 }
+
                 ruleSetRules[ruleNamespace][ruleId] = new RuleAction { Action = action };
             }
         }
@@ -407,7 +407,6 @@ public class RuleAction
     public string Action { get; set; }
 }
 
-
 [System.Serializable]
 public class RuleNamespace
 {
@@ -416,7 +415,6 @@ public class RuleNamespace
     public string analyzerId;
     public List<RuleEntry> entries = new List<RuleEntry>();
 }
-
 
 // 定义数据结构
 [System.Serializable]
