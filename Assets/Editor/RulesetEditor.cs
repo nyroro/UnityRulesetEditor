@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEditor;
 using System;
 using System.Reflection;
@@ -9,14 +9,14 @@ using System.Data;
 using Microsoft.CodeAnalysis;
 using System.IO;
 using System.Xml;
-using Unity.VisualScripting;
 public class RulesetEditor : EditorWindow
 {
     private Vector2 scrollPosition;
     private Dictionary<string, bool> namespaceFoldouts = new Dictionary<string, bool>();
     private List<RuleNamespace> ruleNamespaces = new List<RuleNamespace>();
-    private string selectedOption = "a";
-    private string[] options = new string[] { "a", "b", "c", "Create New Ruleset" };
+    private string selectedOption;
+    private const string createNewRulesetOption = "Create New Ruleset";
+    private string[] options;
     private Dictionary<string, Dictionary<string, RuleAction>> ruleSetRules = new Dictionary<string, Dictionary<string, RuleAction>>();
 
     [MenuItem("Window/Rulesets")]
@@ -24,6 +24,7 @@ public class RulesetEditor : EditorWindow
     {
         GetWindow<RulesetEditor>("Rulesets");
     }
+
 
     private void OnEnable()
     {
@@ -34,7 +35,11 @@ public class RulesetEditor : EditorWindow
     private void InitializeRulesetFiles()
     {
         options = Directory.GetFiles(Application.dataPath, "*.ruleset", System.IO.SearchOption.AllDirectories);
-
+        if (options.Length == 0)
+        {
+            options = new string[] { string.Empty };
+        }
+        options = options.Append(createNewRulesetOption).ToArray();
         selectedOption = options[0];
     }
 
@@ -53,6 +58,10 @@ public class RulesetEditor : EditorWindow
             parser.ParseRuleSet(selectedOption);
             ruleSetRules = parser.GetRuleSetRules();
         }
+        else
+        {
+            ruleSetRules.Clear();
+        }
 
         foreach (string assetGUID in allAssetGUIDs)
         {
@@ -60,9 +69,16 @@ public class RulesetEditor : EditorWindow
             if (assetPath.EndsWith(".dll"))
             {
                 string[] labels = AssetDatabase.GetLabels(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(assetPath));
-                if (System.Array.Exists(labels, label => label == targetLabel))
+                if (Array.Exists(labels, label => label == targetLabel))
                 {
-                    LoadAnalyzer(assetPath);
+                    try
+                    {
+                        LoadAnalyzer(assetPath);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogWarning($"Cannot load analyzer {assetPath}: {e}");
+                    }
                 }
             }
         }
@@ -84,10 +100,10 @@ public class RulesetEditor : EditorWindow
                 var ruleNamespace = type.Namespace;
                 System.Collections.Immutable.ImmutableArray<DiagnosticDescriptor> supportedDiagnostics = analyzerInstance.SupportedDiagnostics;
                 foreach (var diagnostic in supportedDiagnostics)
-                {   
+                {
                     if (!namespaceTable.ContainsKey(ruleNamespace))
                     {
-                        namespaceTable.Add(ruleNamespace, new RuleNamespace { name = ruleNamespace, analyzerId= assemblyName});
+                        namespaceTable.Add(ruleNamespace, new RuleNamespace { name = ruleNamespace, analyzerId = assemblyName });
                     }
                     var ruleNamespaceEntry = namespaceTable[ruleNamespace];
                     RuleEntry ruleEntry = new RuleEntry
@@ -133,7 +149,7 @@ public class RulesetEditor : EditorWindow
         DrawBottomButtons(); // 添加底部按钮的绘制
     }
 
-    
+
     private void DrawBottomButtons()
     {
         GUILayout.BeginHorizontal();
@@ -184,7 +200,7 @@ public class RulesetEditor : EditorWindow
 
         if (selectedOption == "Create New Ruleset")
         {
-            CreateNewRuleset();
+            CreateNewRuleset(preSelected);
         }
         else if (preSelected != selectedOption)
         {
@@ -203,7 +219,7 @@ public class RulesetEditor : EditorWindow
 
     private string searchString = "";
 
-    private void CreateNewRuleset()
+    private void CreateNewRuleset(string preSelected)
     {
         string path = EditorUtility.SaveFilePanel(
             "Create New Ruleset",
@@ -217,8 +233,18 @@ public class RulesetEditor : EditorWindow
             // 创建并保存新的规则集文件
             // 这里可以添加创建规则集文件的逻辑
             Debug.Log("创建了新的规则集文件：" + path);
+            options = options.Append(path).OrderBy(x => x).ToArray();
+            selectedOption = string.Empty;
+            ruleNamespaces.Clear();
+            InitializeRulesetData();
+
+            selectedOption = path;
+            ApplyChanges();
         }
-        selectedOption = options[0];
+        else
+        {
+            selectedOption = preSelected;
+        }
     }
 
     private void DrawContent()
@@ -392,7 +418,7 @@ public class RuleNamespace
 }
 
 
-    // 定义数据结构
+// 定义数据结构
 [System.Serializable]
 public class RuleEntry
 {
