@@ -13,8 +13,8 @@ using Unity.VisualScripting;
 public class RulesetEditor : EditorWindow
 {
     private Vector2 scrollPosition;
-    private Dictionary<string, bool> categoryFoldouts = new Dictionary<string, bool>();
-    private List<Category> categories = new List<Category>();
+    private Dictionary<string, bool> namespaceFoldouts = new Dictionary<string, bool>();
+    private List<RuleNamespace> ruleNamespaces = new List<RuleNamespace>();
     private string selectedOption = "a";
     private string[] options = new string[] { "a", "b", "c", "Create New Ruleset" };
     private Dictionary<string, Dictionary<string, RuleAction>> ruleSetRules = new Dictionary<string, Dictionary<string, RuleAction>>();
@@ -30,7 +30,7 @@ public class RulesetEditor : EditorWindow
     }
 
     [System.Serializable]
-    public class Category
+    public class RuleNamespace
     {
         public string name;
         public List<RuleEntry> entries = new List<RuleEntry>();
@@ -57,7 +57,7 @@ public class RulesetEditor : EditorWindow
 
     private void InitializeRulesetData()
     {
-        categories.Clear();
+        ruleNamespaces.Clear();
 
         string targetLabel = "RoslynAnalyzer";
 
@@ -92,23 +92,21 @@ public class RulesetEditor : EditorWindow
         var diagnosticAnalyzerTypes = assembly.GetTypes()
                                             .Where(t => typeof(DiagnosticAnalyzer).IsAssignableFrom(t) && !t.IsAbstract)
                                             .ToList();
-        Dictionary<string, Category> categoryTable = new Dictionary<string, Category>();
+        Dictionary<string, RuleNamespace> namespaceTable = new Dictionary<string, RuleNamespace>();
         foreach (var type in diagnosticAnalyzerTypes)
         {
             var analyzerInstance = Activator.CreateInstance(type) as DiagnosticAnalyzer;
             if (analyzerInstance != null)
             {
-                System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor> supportedDiagnostics = analyzerInstance.SupportedDiagnostics;
+                var ruleNamespace = type.Namespace;
+                System.Collections.Immutable.ImmutableArray<DiagnosticDescriptor> supportedDiagnostics = analyzerInstance.SupportedDiagnostics;
                 foreach (var diagnostic in supportedDiagnostics)
-                {
-                    var categoryName = diagnostic.Category.Substring(diagnostic.Category.LastIndexOf('.') + 1);
-                    categoryName = $"{assemblyName}.{categoryName}";
-                    
-                    if (!categoryTable.ContainsKey(categoryName))
+                {   
+                    if (!namespaceTable.ContainsKey(ruleNamespace))
                     {
-                        categoryTable.Add(categoryName, new Category { name = categoryName });
+                        namespaceTable.Add(ruleNamespace, new RuleNamespace { name = ruleNamespace });
                     }
-                    var category = categoryTable[categoryName];
+                    var ruleNamespaceEntry = namespaceTable[ruleNamespace];
                     RuleEntry ruleEntry = new RuleEntry
                     {
                         enabled = diagnostic.IsEnabledByDefault,
@@ -118,7 +116,7 @@ public class RulesetEditor : EditorWindow
                     };
 
                     // 检查RuleSet中的规则
-                    if (ruleSetRules.TryGetValue(categoryName, out var rules) && rules.TryGetValue(ruleEntry.id, out var action))
+                    if (ruleSetRules.TryGetValue(ruleNamespace, out var rules) && rules.TryGetValue(ruleEntry.id, out var action))
                     {
                         ruleEntry.enabled = action.Action != "None";
                         if (action.Action != "None" && action.Action != "Error" && action.Action != "Warning" && action.Action != "Info")
@@ -137,12 +135,12 @@ public class RulesetEditor : EditorWindow
                         }
                     }
 
-                    category.entries.Add(ruleEntry);
+                    ruleNamespaceEntry.entries.Add(ruleEntry);
                 }
             }
         }
 
-        categories.AddRange(categoryTable.Values);
+        ruleNamespaces.AddRange(namespaceTable.Values);
     }
 
     private void OnGUI()
@@ -204,27 +202,27 @@ public class RulesetEditor : EditorWindow
     {
         scrollPosition = GUILayout.BeginScrollView(scrollPosition);
 
-        foreach (var category in categories)
+        foreach (var ruleNamespace in ruleNamespaces)
         {
-            bool hasMatchingRules = category.entries.Any(e =>
+            bool hasMatchingRules = ruleNamespace.entries.Any(e =>
                 e.id.Contains(searchString, StringComparison.OrdinalIgnoreCase) ||
                 e.title.Contains(searchString, StringComparison.OrdinalIgnoreCase));
 
             if (hasMatchingRules)
             {
-                if (!categoryFoldouts.ContainsKey(category.name))
+                if (!namespaceFoldouts.ContainsKey(ruleNamespace.name))
                 {
-                    categoryFoldouts[category.name] = false;
+                    namespaceFoldouts[ruleNamespace.name] = false;
                 }
 
                 if (searchString != "")
                 {
-                    categoryFoldouts[category.name] = true;
+                    namespaceFoldouts[ruleNamespace.name] = true;
                 }
 
-                bool isExpanded = categoryFoldouts[category.name];
-                bool allEnabled = category.entries.Count == 0 ? false : category.entries.All(e => e.enabled);
-                bool someEnabled = !allEnabled && category.entries.Any(e => e.enabled);
+                bool isExpanded = namespaceFoldouts[ruleNamespace.name];
+                bool allEnabled = ruleNamespace.entries.Count == 0 ? false : ruleNamespace.entries.All(e => e.enabled);
+                bool someEnabled = !allEnabled && ruleNamespace.entries.Any(e => e.enabled);
 
                 EditorGUILayout.BeginHorizontal(EditorStyles.foldoutHeader);
 
@@ -236,13 +234,13 @@ public class RulesetEditor : EditorWindow
 
                 if (EditorGUI.EndChangeCheck())
                 {
-                    foreach (var entry in category.entries)
+                    foreach (var entry in ruleNamespace.entries)
                     {
                         entry.enabled = newToggle;
                     }
                 }
 
-                GUILayout.Label(category.name, GUILayout.ExpandWidth(true));
+                GUILayout.Label(ruleNamespace.name, GUILayout.ExpandWidth(true));
 
                 GUIContent arrowIcon = isExpanded
                     ? EditorGUIUtility.IconContent("IN foldout on")
@@ -256,15 +254,15 @@ public class RulesetEditor : EditorWindow
                 {
                     if (!toggleRect.Contains(Event.current.mousePosition))
                     {
-                        categoryFoldouts[category.name] = !isExpanded;
+                        namespaceFoldouts[ruleNamespace.name] = !isExpanded;
                         Event.current.Use();
                     }
                 }
 
-                if (categoryFoldouts[category.name])
+                if (namespaceFoldouts[ruleNamespace.name])
                 {
                     EditorGUI.indentLevel++;
-                    foreach (var entry in category.entries)
+                    foreach (var entry in ruleNamespace.entries)
                     {
                         if (entry.id.Contains(searchString, StringComparison.OrdinalIgnoreCase) ||
                             entry.title.Contains(searchString, StringComparison.OrdinalIgnoreCase))
