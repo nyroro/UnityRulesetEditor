@@ -48,7 +48,7 @@ public class RulesetEditor : EditorWindow
     private void InitializeRulesetFiles()
     {
         options = Directory.GetFiles(Application.dataPath, "*.ruleset", System.IO.SearchOption.AllDirectories);
-        // options = options.Append("Create New Ruleset").ToArray();
+
         selectedOption = options[0];
     }
 
@@ -68,10 +68,7 @@ public class RulesetEditor : EditorWindow
                 string[] labels = AssetDatabase.GetLabels(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(assetPath));
                 if (System.Array.Exists(labels, label => label == targetLabel))
                 {
-                    if (!assetPath.Contains("CodeFixes"))
-                    {
-                        LoadAnalyzer(assetPath);
-                    }
+                    LoadAnalyzer(assetPath);
                 }
             }
         }
@@ -149,7 +146,7 @@ public class RulesetEditor : EditorWindow
         string path = EditorUtility.SaveFilePanel(
             "Create New Ruleset",
             "",
-            "NewRuleset",
+            "Default",
             "ruleset"
         );
 
