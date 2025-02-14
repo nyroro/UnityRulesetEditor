@@ -19,23 +19,6 @@ public class RulesetEditor : EditorWindow
     private string[] options = new string[] { "a", "b", "c", "Create New Ruleset" };
     private Dictionary<string, Dictionary<string, RuleAction>> ruleSetRules = new Dictionary<string, Dictionary<string, RuleAction>>();
 
-    // 定义数据结构
-    [System.Serializable]
-    public class RuleEntry
-    {
-        public bool enabled;
-        public string id;
-        public string title;
-        public DiagnosticSeverity severity;
-    }
-
-    [System.Serializable]
-    public class RuleNamespace
-    {
-        public string name;
-        public List<RuleEntry> entries = new List<RuleEntry>();
-    }
-
     [MenuItem("Window/Rulesets")]
     public static void ShowWindow()
     {
@@ -104,7 +87,7 @@ public class RulesetEditor : EditorWindow
                 {   
                     if (!namespaceTable.ContainsKey(ruleNamespace))
                     {
-                        namespaceTable.Add(ruleNamespace, new RuleNamespace { name = ruleNamespace });
+                        namespaceTable.Add(ruleNamespace, new RuleNamespace { name = ruleNamespace, analyzerId= assemblyName});
                     }
                     var ruleNamespaceEntry = namespaceTable[ruleNamespace];
                     RuleEntry ruleEntry = new RuleEntry
@@ -147,6 +130,47 @@ public class RulesetEditor : EditorWindow
     {
         DrawToolbar();
         DrawContent();
+        DrawBottomButtons(); // 添加底部按钮的绘制
+    }
+
+    
+    private void DrawBottomButtons()
+    {
+        GUILayout.BeginHorizontal();
+        GUILayout.FlexibleSpace(); // 将按钮推到右边
+
+        if (GUILayout.Button("Revert", GUILayout.Width(80)))
+        {
+            RevertToDefault();
+        }
+
+        if (GUILayout.Button("Apply", GUILayout.Width(80)))
+        {
+            ApplyChanges();
+        }
+
+        GUILayout.EndHorizontal();
+    }
+
+    private void RevertToDefault()
+    {
+        InitializeRulesetData();
+        Repaint();
+    }
+
+    private void ApplyChanges()
+    {
+        if (!string.IsNullOrEmpty(selectedOption) && selectedOption != "Create New Ruleset")
+        {
+            string filePath = selectedOption;
+            RuleSetParser parser = new RuleSetParser();
+            parser.SaveRuleSet(filePath, ruleNamespaces);
+            Debug.Log("保存成功： " + filePath);
+        }
+        else
+        {
+            Debug.Log("请先选择一个规则集文件");
+        }
     }
 
     private void DrawToolbar()
@@ -318,6 +342,35 @@ public class RuleSetParser
         }
     }
 
+    public void SaveRuleSet(string filePath, List<RuleNamespace> ruleNamespaces)
+    {
+        XmlDocument xmlDoc = new XmlDocument();
+        XmlElement root = xmlDoc.CreateElement("RuleSet");
+        root.SetAttribute("ToolsVersion", "17.0");
+        root.SetAttribute("Name", "Rules");
+        root.SetAttribute("Description", "Rules");
+        xmlDoc.AppendChild(newChild: root);
+
+        foreach (var namespaceItem in ruleNamespaces)
+        {
+            XmlElement rulesElement = xmlDoc.CreateElement("Rules");
+            rulesElement.SetAttribute("AnalyzerId", namespaceItem.analyzerId);
+            rulesElement.SetAttribute("RuleNamespace", namespaceItem.name);
+
+            foreach (var entry in namespaceItem.entries)
+            {
+                XmlElement ruleElement = xmlDoc.CreateElement("Rule");
+                ruleElement.SetAttribute("Id", entry.id);
+                ruleElement.SetAttribute("Action", entry.enabled ? entry.severity.ToString() : "None");
+                rulesElement.AppendChild(ruleElement);
+            }
+
+            root.AppendChild(rulesElement);
+        }
+
+        xmlDoc.Save(filePath);
+    }
+
     public Dictionary<string, Dictionary<string, RuleAction>> GetRuleSetRules()
     {
         return ruleSetRules;
@@ -327,4 +380,25 @@ public class RuleSetParser
 public class RuleAction
 {
     public string Action { get; set; }
+}
+
+
+[System.Serializable]
+public class RuleNamespace
+{
+    public string name;
+
+    public string analyzerId;
+    public List<RuleEntry> entries = new List<RuleEntry>();
+}
+
+
+    // 定义数据结构
+[System.Serializable]
+public class RuleEntry
+{
+    public bool enabled;
+    public string id;
+    public string title;
+    public DiagnosticSeverity severity;
 }
