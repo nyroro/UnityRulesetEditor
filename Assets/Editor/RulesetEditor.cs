@@ -164,7 +164,6 @@ public class RulesetEditor : EditorWindow
         }
         else if (preSelected != selectedOption)
         {
-            InitializeRulesetFiles();
             InitializeRulesetData();
         }
 
